@@ -14,6 +14,7 @@ export function InstallPWAButton() {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('PWA install prompt triggered')
       // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault()
       // Stash the event so it can be triggered later
@@ -22,8 +23,31 @@ export function InstallPWAButton() {
     }
 
     const handleAppInstalled = () => {
+      console.log('PWA installed')
       setShowInstallButton(false)
       setDeferredPrompt(null)
+    }
+
+    // Check if app is already installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const isInWebAppiOS = (window.navigator as any).standalone === true
+    
+    if (isStandalone || isInWebAppiOS) {
+      console.log('PWA already installed')
+      return
+    }
+
+    // For debugging - show button temporarily on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    if (isMobile) {
+      console.log('Mobile device detected, checking PWA requirements')
+      // Temporary fallback for mobile testing
+      setTimeout(() => {
+        if (!deferredPrompt) {
+          console.log('No beforeinstallprompt event, showing fallback button')
+          setShowInstallButton(true)
+        }
+      }, 2000)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)

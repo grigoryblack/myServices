@@ -35,21 +35,23 @@ export default function HomePage() {
 
       {Object.entries(toolsByCategory).map(([category, tools]) => (
         <div key={category}>
-          <h2 className="text-xl font-semibold mb-4">
-            {categoryNames[category as keyof typeof categoryNames]}
-          </h2>
+          {category !== 'general' && (
+            <h2 className="text-xl font-semibold mb-4">
+              {categoryNames[category as keyof typeof categoryNames]}
+            </h2>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tools.map((tool) => {
+            {tools.filter(tool => tool.id !== 'dashboard').map((tool) => {
               const Icon = tool.icon
               return (
                 <Link key={tool.id} href={tool.href}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Icon className="h-5 w-5" />
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Icon className="h-4 w-4" />
                         {tool.name}
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs">
                         {tool.description}
                       </CardDescription>
                     </CardHeader>
