@@ -2,28 +2,9 @@
  * Shared UI components barrel export
  * Centralizes all UI component exports for easy importing
  */
-export { Button, buttonVariants } from './button'
+export { Button } from './button'
 export { Input } from './input'
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card'
-export { 
-  Dialog, 
-  DialogPortal, 
-  DialogOverlay, 
-  DialogClose, 
-  DialogTrigger, 
-  DialogContent, 
-  DialogHeader, 
-  DialogFooter, 
-  DialogTitle, 
-  DialogDescription 
-} from './dialog'
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
-} from './table'
+export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table'
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog'
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card'
+export { InstallPWAButton } from './install-pwa-button'

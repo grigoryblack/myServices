@@ -15,14 +15,6 @@ export interface Tool {
 
 export const TOOLS: Tool[] = [
   {
-    id: 'dashboard',
-    name: 'Главная',
-    description: 'Обзор всех инструментов',
-    icon: Home,
-    href: '/',
-    category: 'general'
-  },
-  {
     id: 'finance',
     name: 'Финансовый менеджер',
     description: 'План-Факт бюджет и управление расходами',

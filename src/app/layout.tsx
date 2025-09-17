@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   title: 'Личный портал',
   description: 'Персональный портал с инструментами для управления финансами и не только',
   manifest: '/manifest.json',
-  themeColor: '#3b82f6',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

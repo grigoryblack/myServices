@@ -30,15 +30,15 @@ export default function AnalyticsPage() {
   // Prevent hydration mismatch by not rendering until client-side
   if (!isClient) {
     return (
-      <div className="space-y-10">
-        <div className="flex items-center justify-between">
+      <div className="space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Аналитика</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl mt-4 sm:text-3xl font-bold">Аналитика</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               Загрузка • Графики и статистика по финансам
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 self-start sm:self-auto">
             <div className="w-32 h-10 bg-muted animate-pulse rounded"></div>
           </div>
         </div>
@@ -63,14 +63,14 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Аналитика</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl mt-4 sm:text-3xl font-bold">Аналитика</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Графики и статистика по финансам
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 self-start sm:self-auto">
           <MonthSelector />
         </div>
       </div>

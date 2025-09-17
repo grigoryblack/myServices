@@ -25,7 +25,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 mt-4">
       <div>
         <h1 className="text-3xl font-bold">Добро пожаловать в личный портал</h1>
         <p className="text-muted-foreground mt-2">

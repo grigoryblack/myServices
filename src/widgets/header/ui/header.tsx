@@ -1,24 +1,39 @@
 "use client"
 
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Menu, X } from 'lucide-react'
 import { useUIStore } from '@/app/store/useUIStore'
-import { Button } from '@/shared/ui'
+import { Button, InstallPWAButton } from '@/shared/ui'
 
 /**
  * Header widget component
  * Provides theme toggle and other global actions
  */
 export function Header() {
-  const { theme, toggleTheme, sidebarOpen } = useUIStore()
+  const { theme, toggleTheme, sidebarOpen, mobileMenuOpen, toggleMobileMenu } = useUIStore()
 
   return (
-    <header className={`fixed top-0 right-0 z-30 h-16 bg-background border-b transition-all duration-300 ${
+    <header className={`fixed top-0 right-0 z-20 h-16 bg-background border-b transition-all duration-300 ${
       sidebarOpen ? 'lg:left-64' : 'lg:left-0'
     } left-0`}>
       <div className="flex items-center justify-between h-full px-6">
-        <div className="flex-1" />
+        {/* Mobile menu button - left side */}
+        <div className="lg:hidden">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleMobileMenu}
+            className="bg-background"
+          >
+            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
+        </div>
         
+        {/* Desktop spacer */}
+        <div className="hidden lg:block flex-1" />
+        
+        {/* Right side buttons */}
         <div className="flex items-center gap-2">
+          <InstallPWAButton />
           <Button
             variant="ghost"
             size="icon"
