@@ -24,6 +24,8 @@ interface FinanceState {
   addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'month'>) => void
   updateTransaction: (transactionId: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => void
   removeTransaction: (transactionId: string) => void
+  addCategory: (month: string, categoryData: Omit<BudgetCategory, 'id' | 'actualAmount'>) => void
+  removeCategory: (month: string, categoryId: string) => void
   getCategoryActualAmount: (categoryId: string, month?: string) => number
   getTransactionsByCategory: (categoryId: string, month?: string) => Transaction[]
   getAvailableMonths: () => string[]
@@ -84,7 +86,8 @@ export const useFinanceStore = create<FinanceState>()(
             plannedAmount: 15000,
             actualAmount: 0,
             type: 'expense',
-            categoryType: 'fixed',
+            categoryType: 'variable',
+            proportion: 0.15,
             color: '#991b1b'
           })
           budget.updatedAt = new Date()
@@ -185,9 +188,9 @@ export const useFinanceStore = create<FinanceState>()(
         })
       },
 
-      addCategory: (categoryData: Omit<BudgetCategory, 'id'>) => {
-        const { currentMonth, budgets } = get()
-        const budget = budgets[currentMonth]
+      addCategory: (month: string, categoryData: Omit<BudgetCategory, 'id' | 'actualAmount'>) => {
+        const { budgets } = get()
+        const budget = budgets[month]
         if (!budget) return
 
         const newCategory: BudgetCategory = {
@@ -203,17 +206,27 @@ export const useFinanceStore = create<FinanceState>()(
         }
 
         set((state) => ({
-          budgets: { ...state.budgets, [currentMonth]: updatedBudget }
+          budgets: { ...state.budgets, [month]: updatedBudget }
         }))
+
+        // If it's a variable category, redistribute income
+        if (categoryData.categoryType === 'variable') {
+          get().redistributeIncome(month)
+        }
       },
 
-      removeCategory: (categoryId: string) => {
-        const { currentMonth, budgets, transactions } = get()
-        const budget = budgets[currentMonth]
+      removeCategory: (month: string, categoryId: string) => {
+        const { budgets, transactions } = get()
+        const budget = budgets[month]
         if (!budget) return
 
+        const categoryToRemove = budget.categories.find(cat => cat.id === categoryId)
         const updatedCategories = budget.categories.filter(cat => cat.id !== categoryId)
-        const updatedTransactions = transactions.filter(t => t.categoryId !== categoryId)
+        
+        // Only remove transactions for the specific month
+        const updatedTransactions = transactions.filter(t => 
+          !(t.categoryId === categoryId && t.month === month)
+        )
 
         const updatedBudget = {
           ...budget,
@@ -222,9 +235,14 @@ export const useFinanceStore = create<FinanceState>()(
         }
 
         set((state) => ({
-          budgets: { ...state.budgets, [currentMonth]: updatedBudget },
+          budgets: { ...state.budgets, [month]: updatedBudget },
           transactions: updatedTransactions,
         }))
+
+        // If it was a variable category, redistribute income
+        if (categoryToRemove && categoryToRemove.categoryType === 'variable') {
+          get().redistributeIncome(month)
+        }
       },
 
       addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'month'>) => {
@@ -472,7 +490,8 @@ export const useFinanceStore = create<FinanceState>()(
               plannedAmount: 15000,
               actualAmount: 0,
               type: 'expense',
-              categoryType: 'fixed',
+              categoryType: 'variable',
+              proportion: 0.15,
               color: '#991b1b'
             },
             // Variable expenses with proportions

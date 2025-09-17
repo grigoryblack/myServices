@@ -10,6 +10,7 @@ import {
   SavingsWidget,
   IncomeForm,
   TransactionHistory,
+  CategoryManager,
 } from '@/features/finance-management'
 import { useFinanceStore } from '@/features/finance-management/model/useFinanceStore'
 
@@ -44,7 +45,7 @@ export default function FinancePage() {
   if (!isClient) {
     return (
       <div className="space-y-8">
-        <div className="flex mt-4 flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Финансовый менеджер</h1>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">
@@ -78,7 +79,7 @@ export default function FinancePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl mt-4 sm:text-3xl font-bold">Финансовый менеджер</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Финансовый менеджер</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             {currentBudget?.name} • Управление бюджетом по месяцам
           </p>
@@ -105,6 +106,7 @@ export default function FinancePage() {
         <div className="space-y-6">
           <IncomeForm />
           <SavingsWidget />
+          <CategoryManager month={currentBudget?.month || ''} />
           <ExpenseForm />
         </div>
       </div>
