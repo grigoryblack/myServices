@@ -123,7 +123,7 @@ export function TransactionHistory() {
           <select 
             value={filterMonth} 
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="px-3 py-1 border rounded-md text-sm"
+            className="px-3 py-1 border rounded-md text-sm bg-background text-foreground border-border focus:ring-2 focus:ring-ring focus:border-ring"
           >
             {availableMonths.map(month => (
               <option key={month} value={month}>{month}</option>

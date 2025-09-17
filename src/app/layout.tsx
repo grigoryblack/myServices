@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Sidebar, Header } from '@/widgets'
+import { ThemeProvider } from '@/shared/providers'
 import '@/lib/self-pinger'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -23,13 +24,15 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className={inter.className}>
-        <div className="min-h-screen bg-background">
-          <Sidebar />
-          <Header />
-          <main className="lg:ml-64 pt-16 p-6">
-            {children}
-          </main>
-        </div>
+        <ThemeProvider>
+          <div className="min-h-screen bg-background">
+            <Sidebar />
+            <Header />
+            <main className="lg:ml-64 pt-16 p-6">
+              {children}
+            </main>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   )
