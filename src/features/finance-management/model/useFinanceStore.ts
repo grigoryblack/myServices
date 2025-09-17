@@ -31,6 +31,7 @@ interface FinanceState {
   setCurrentMonth: (month: string) => void
   setSavingsGoal: (goal: number, description: string) => void
   setSavingsAmount: (amount: number, month?: string) => void
+  updateBudgetIncome: (month: string, totalIncome: number) => void
   initializeWithSeedData: () => void
   clearAllData: () => void
 }
