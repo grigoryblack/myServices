@@ -37,17 +37,22 @@ export function InstallPWAButton() {
       return
     }
 
-    // For debugging - show button temporarily on mobile
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    if (isMobile) {
-      console.log('Mobile device detected, checking PWA requirements')
-      // Temporary fallback for mobile testing
+    // iOS Safari doesn't support beforeinstallprompt, show manual instructions
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isAndroid = /Android/.test(navigator.userAgent)
+    
+    if (isIOS) {
+      console.log('iOS device detected - showing manual install instructions')
+      setShowInstallButton(true)
+    } else if (isAndroid) {
+      console.log('Android device detected, waiting for beforeinstallprompt')
+      // Fallback for Android if event doesn't fire
       setTimeout(() => {
         if (!deferredPrompt) {
-          console.log('No beforeinstallprompt event, showing fallback button')
+          console.log('No beforeinstallprompt event on Android, showing fallback')
           setShowInstallButton(true)
         }
-      }, 2000)
+      }, 3000)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -60,7 +65,19 @@ export function InstallPWAButton() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    
+    if (isIOS) {
+      // Show iOS installation instructions
+      alert('Для установки на iOS:\n1. Нажмите кнопку "Поделиться" в Safari\n2. Выберите "На экран «Домой»"\n3. Нажмите "Добавить"')
+      return
+    }
+
+    if (!deferredPrompt) {
+      // Fallback for browsers without beforeinstallprompt
+      alert('Для установки:\n• Chrome: Меню → "Установить приложение"\n• Edge: Меню → "Приложения" → "Установить это приложение"')
+      return
+    }
 
     // Show the install prompt
     deferredPrompt.prompt()

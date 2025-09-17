@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import { TOOLS } from '@/shared/config/tools'
 import { useUIStore } from '@/app/store/useUIStore'
-import { Button } from '@/shared/ui'
+import { Button, InstallPWAButton } from '@/shared/ui'
 import { cn } from '@/shared/lib/utils'
 
 /**
@@ -87,7 +87,8 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t space-y-3">
+            <InstallPWAButton />
             <p className="text-xs text-muted-foreground">
               Версия 1.0.0
             </p>

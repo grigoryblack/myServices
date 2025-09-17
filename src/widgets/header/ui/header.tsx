@@ -33,7 +33,6 @@ export function Header() {
         
         {/* Right side buttons */}
         <div className="flex items-center gap-2">
-          <InstallPWAButton />
           <Button
             variant="ghost"
             size="icon"
