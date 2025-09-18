@@ -23,6 +23,8 @@ export default function FinancePage() {
   const getAvailableMonths = useFinanceStore(state => state.getAvailableMonths)
   const initializeWithSeedData = useFinanceStore(state => state.initializeWithSeedData)
   const clearAllData = useFinanceStore(state => state.clearAllData)
+  const isInitialized = useFinanceStore(state => state.isInitialized)
+  const isInitializing = useFinanceStore(state => state.isInitializing)
   
   const [isClient, setIsClient] = useState(false)
 
@@ -40,11 +42,11 @@ export default function FinancePage() {
 
   // Initialize with seed data if no budgets exist
   useEffect(() => {
-    if (isClient && availableMonths.length === 0) {
+    if (isClient && availableMonths.length === 0 && !isInitialized && !isInitializing) {
       console.log('Initializing seed data...')
       initializeWithSeedData()
     }
-  }, [isClient, availableMonths.length, initializeWithSeedData])
+  }, [isClient, availableMonths.length, isInitialized, isInitializing, initializeWithSeedData])
 
   // Force re-render when budgets change
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {availableMonths.length === 0 ? (
+      {(availableMonths.length === 0 || isInitializing) ? (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <h2 className="text-xl font-semibold mb-2">Инициализация бюджета...</h2>

@@ -23,7 +23,9 @@ const CATEGORY_COLORS = [
 ]
 
 export function CategoryManager({ month }: CategoryManagerProps) {
-  const { budgets, addCategory, removeCategory } = useFinanceStore()
+  const budgets = useFinanceStore(state => state.budgets)
+  const addCategory = useFinanceStore(state => state.addCategory)
+  const removeCategory = useFinanceStore(state => state.removeCategory)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newCategory, setNewCategory] = useState({
     name: '',
@@ -79,7 +81,13 @@ export function CategoryManager({ month }: CategoryManagerProps) {
 
   const handleRemoveCategory = (categoryId: string) => {
     if (confirm('Вы уверены, что хотите удалить эту категорию? Все связанные транзакции также будут удалены.')) {
+      console.log('CategoryManager: Removing category', categoryId, 'from month', month)
       removeCategory(month, categoryId)
+      
+      // Force re-render by updating a dummy state
+      setTimeout(() => {
+        console.log('CategoryManager: Categories after removal:', budget?.categories?.length)
+      }, 100)
     }
   }
 
@@ -229,7 +237,16 @@ export function CategoryManager({ month }: CategoryManagerProps) {
       
       <CardContent>
         <div className="space-y-2 max-h-80 overflow-y-auto">
-          {budget.categories.map((category) => (
+          {budget.categories.filter(cat => cat.type === 'expense' || cat.type === 'savings').length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <div className="flex flex-col items-center gap-3">
+                <div className="text-2xl">📂</div>
+                <div className="font-medium">Нет категорий</div>
+                <div className="text-sm">Добавьте первую категорию, нажав кнопку выше</div>
+              </div>
+            </div>
+          ) : (
+            budget.categories.filter(cat => cat.type === 'expense' || cat.type === 'savings').map((category) => (
             <div
               key={category.id}
               className="flex items-center justify-between p-3 rounded-lg border bg-card"
@@ -263,7 +280,7 @@ export function CategoryManager({ month }: CategoryManagerProps) {
                 </Button>
               )}
             </div>
-          ))}
+          )))}
         </div>
       </CardContent>
     </Card>

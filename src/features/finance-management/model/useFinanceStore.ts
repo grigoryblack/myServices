@@ -9,9 +9,11 @@ import { BudgetCategory, Budget, Transaction, BudgetSummary, SavingsSummary } fr
  * Manages multiple monthly budgets, categories, and transactions with persistence
  */
 interface FinanceState {
-  budgets: Record<string, Budget> // Key: YYYY-MM format
-  currentMonth: string
+  budgets: Record<string, Budget>
   transactions: Transaction[]
+  currentMonth: string
+  isInitialized: boolean
+  isInitializing: boolean
   savingsGoal: number
   savingsGoalDescription: string
   
@@ -42,10 +44,12 @@ export const useFinanceStore = create<FinanceState>()(
   persist(
     (set, get) => ({
       budgets: {},
-      currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM format
+      currentMonth: new Date().toISOString().slice(0, 7),
       transactions: [],
-      savingsGoal: 0,
-      savingsGoalDescription: 'Цель на год',
+      isInitialized: false,
+      isInitializing: false,
+      savingsGoal: 100000,
+      savingsGoalDescription: 'Цель накоплений',
 
       createBudget: (name: string, month: string, totalIncome = 0) => {
         const defaultCategories: BudgetCategory[] = [
@@ -108,27 +112,6 @@ export const useFinanceStore = create<FinanceState>()(
         
         if (!budget) return null
         
-        // Check if unexpected expenses category exists, if not add it
-        const hasUnexpectedExpenses = budget.categories.some(cat => 
-          cat.name === 'Непредвиденные расходы'
-        )
-        
-        if (!hasUnexpectedExpenses) {
-          budget.categories.push({
-            id: crypto.randomUUID(),
-            name: 'Непредвиденные расходы',
-            plannedAmount: 0,
-            actualAmount: 0,
-            type: 'expense',
-            categoryType: 'variable',
-            proportion: 0.15,
-            color: '#991b1b'
-          })
-          budget.updatedAt = new Date()
-          
-          // Update the store
-          set({ budgets: { ...budgets } })
-        }
         
         return budget
       },
@@ -255,6 +238,10 @@ export const useFinanceStore = create<FinanceState>()(
         if (!budget) return
 
         const categoryToRemove = budget.categories.find(cat => cat.id === categoryId)
+        if (!categoryToRemove) return
+
+        console.log('Removing category:', categoryToRemove.name, 'from month:', month)
+
         const updatedCategories = budget.categories.filter(cat => cat.id !== categoryId)
         
         // Only remove transactions for the specific month
@@ -268,14 +255,18 @@ export const useFinanceStore = create<FinanceState>()(
           updatedAt: new Date(),
         }
 
+        // Force state update to trigger re-render
         set((state) => ({
+          ...state,
           budgets: { ...state.budgets, [month]: updatedBudget },
           transactions: updatedTransactions,
         }))
 
+        console.log('Category removed. Remaining categories:', updatedCategories.length)
+
         // If it was a variable category, redistribute income
-        if (categoryToRemove && categoryToRemove.categoryType === 'variable') {
-          get().redistributeIncome(month)
+        if (categoryToRemove.categoryType === 'variable') {
+          setTimeout(() => get().redistributeIncome(month), 100)
         }
       },
 
@@ -300,8 +291,33 @@ export const useFinanceStore = create<FinanceState>()(
       },
 
       removeTransaction: (transactionId: string) => {
-        const { transactions } = get()
-        set({ transactions: transactions.filter(t => t.id !== transactionId) })
+        const { transactions, budgets } = get()
+        const transactionToRemove = transactions.find(t => t.id === transactionId)
+        
+        if (!transactionToRemove) return
+        
+        // Remove the transaction
+        const updatedTransactions = transactions.filter(t => t.id !== transactionId)
+        
+        // Update the category's actual amount
+        const budget = budgets[transactionToRemove.month]
+        if (budget) {
+          const category = budget.categories.find(cat => cat.id === transactionToRemove.categoryId)
+          if (category && category.categoryType !== 'fixed') {
+            // Recalculate actual amount for variable categories
+            const newActualAmount = updatedTransactions
+              .filter(t => t.categoryId === transactionToRemove.categoryId && t.month === transactionToRemove.month)
+              .reduce((sum, t) => sum + t.amount, 0)
+            
+            category.actualAmount = newActualAmount
+            budget.updatedAt = new Date()
+          }
+        }
+        
+        set({ 
+          transactions: updatedTransactions,
+          budgets: { ...budgets }
+        })
       },
 
       getBudgetSummary: (month?: string) => {
@@ -481,6 +497,8 @@ export const useFinanceStore = create<FinanceState>()(
       },
 
       initializeWithSeedData: () => {
+        set((state) => ({ ...state, isInitializing: true }))
+        
         const currentMonth = new Date().toISOString().slice(0, 7)
         const previousMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7)
 
@@ -489,11 +507,13 @@ export const useFinanceStore = create<FinanceState>()(
         createBudget(`Бюджет ${previousMonth}`, previousMonth, 0)
         createBudget(`Бюджет ${currentMonth}`, currentMonth, 0)
 
-        // Force update to trigger re-render
+        // Mark as initialized and stop initializing
         set((state) => ({
           ...state,
           currentMonth,
           transactions: [],
+          isInitialized: true,
+          isInitializing: false,
         }))
       },
 

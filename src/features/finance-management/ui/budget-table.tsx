@@ -16,6 +16,7 @@ export function BudgetTable() {
   const getCategoryActualAmount = useFinanceStore(state => state.getCategoryActualAmount)
   const updateCategory = useFinanceStore(state => state.updateCategory)
   const currentMonth = useFinanceStore(state => state.currentMonth)
+  const budgets = useFinanceStore(state => state.budgets) // Add this to trigger re-render
   
   const [editingCell, setEditingCell] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
@@ -74,18 +75,30 @@ export function BudgetTable() {
     return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
   }
 
-  // Filter and sort categories
-  let expenseCategories = currentBudget.categories.filter(cat => cat.type === 'expense')
-  
+  // Filter and sort categories - include all categories (expense and savings)
+  let allCategories = currentBudget.categories
+    .filter(cat => cat.type === 'expense' || cat.type === 'savings')
+    .sort((a, b) => {
+      // Sort by category type first (fixed, then variable, then savings)
+      const typeOrder = { fixed: 0, variable: 1, savings: 2 }
+      const aOrder = typeOrder[a.categoryType as keyof typeof typeOrder] ?? 3
+      const bOrder = typeOrder[b.categoryType as keyof typeof typeOrder] ?? 3
+      
+      if (aOrder !== bOrder) return aOrder - bOrder
+      
+      // Then sort by name
+      return a.name.localeCompare(b.name)
+    })
+
   // Apply filter
   if (filterType !== 'all') {
-    expenseCategories = expenseCategories.filter(cat => 
+    allCategories = allCategories.filter(cat => 
       filterType === 'fixed' ? cat.categoryType === 'fixed' : cat.categoryType === 'variable'
     )
   }
 
   // Apply sort
-  expenseCategories = expenseCategories.sort((a, b) => {
+  allCategories = allCategories.sort((a, b) => {
     let aValue: any, bValue: any
     
     switch (sortBy) {
@@ -152,7 +165,7 @@ export function BudgetTable() {
         </div>
         
         <div className="text-sm text-muted-foreground">
-          Показано: {expenseCategories.length} категорий
+          Показано: {allCategories.length} категорий
         </div>
       </div>
 
@@ -217,7 +230,18 @@ export function BudgetTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-          {expenseCategories.map((category: BudgetCategory) => {
+          {allCategories.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-lg">📊</div>
+                  <div>Нет категорий для отображения</div>
+                  <div className="text-sm">Добавьте категории через менеджер категорий</div>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+            allCategories.map((category: BudgetCategory) => {
             const actualAmount = getCategoryActualAmount(category.id)
             const deviation = actualAmount - category.plannedAmount
             const deviationPercent = category.plannedAmount > 0 
@@ -279,34 +303,7 @@ export function BudgetTable() {
                 </TableCell>
               </TableRow>
             )
-          })}
-          {/* Savings row - automatic remainder */}
-          <TableRow className="bg-muted/50">
-            <TableCell className="font-medium">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                  Авто
-                </span>
-                Накопления (остаток)
-              </div>
-            </TableCell>
-            <TableCell className="text-right">
-              <span className="text-muted-foreground italic">
-                {formatCurrency(summary.totalPlannedSavings)}
-              </span>
-            </TableCell>
-            <TableCell className="text-right">
-              <span className="text-muted-foreground italic">
-                {formatCurrency(summary.totalActualSavings)}
-              </span>
-            </TableCell>
-            <TableCell className="text-right text-muted-foreground">
-              —
-            </TableCell>
-            <TableCell className="text-right text-muted-foreground">
-              —
-            </TableCell>
-          </TableRow>
+          }))}
         </TableBody>
           </Table>
         </div>
