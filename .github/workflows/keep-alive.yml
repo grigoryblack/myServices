@@ -2,8 +2,8 @@ name: Keep Render Service Alive
 
 on:
   schedule:
-    # Run every 14 minutes
-    - cron: '*/14 * * * *'
+    # Run every 13 minutes (more frequent to prevent sleep)
+    - cron: '*/13 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -13,7 +13,24 @@ jobs:
     steps:
     - name: Ping Render Service
       run: |
-        curl -f ${{ secrets.SERVICE_URL }}/api/ping || exit 1
-        echo "✅ Service pinged successfully at $(date)"
+        echo "🏓 Pinging service at $(date)"
+        response=$(curl -s -w "%{http_code}" -o /tmp/response.json ${{ secrets.SERVICE_URL }}/api/ping)
+        
+        if [ "$response" = "200" ]; then
+          echo "✅ Service pinged successfully"
+          cat /tmp/response.json
+        else
+          echo "❌ Ping failed with HTTP code: $response"
+          cat /tmp/response.json
+          exit 1
+        fi
       env:
         SERVICE_URL: ${{ secrets.SERVICE_URL }}
+        
+    - name: Retry on failure
+      if: failure()
+      run: |
+        echo "🔄 Retrying ping after failure..."
+        sleep 30
+        curl -f ${{ secrets.SERVICE_URL }}/api/ping
+        echo "✅ Retry successful at $(date)"

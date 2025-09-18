@@ -3,7 +3,7 @@
  * Pings the service every 14 minutes to prevent sleep
  */
 
-const PING_INTERVAL = 14 * 60 * 1000 // 14 minutes in milliseconds
+const PING_INTERVAL = 40 * 1000 // 40 seconds in milliseconds
 const MAX_RETRIES = 3
 
 class SelfPinger {
@@ -43,12 +43,20 @@ class SelfPinger {
 
   private async ping(retries = 0): Promise<void> {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
       const response = await fetch(`${this.baseUrl}/api/ping`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': 'SelfPinger/1.0',
+          'Cache-Control': 'no-cache',
         },
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         const data = await response.json()
@@ -60,10 +68,16 @@ class SelfPinger {
       console.warn(`⚠️ Ping failed (attempt ${retries + 1}):`, error)
       
       if (retries < MAX_RETRIES) {
-        // Retry after 30 seconds
-        setTimeout(() => this.ping(retries + 1), 30000)
+        // Exponential backoff: 30s, 60s, 120s
+        const delay = 30000 * Math.pow(2, retries)
+        setTimeout(() => this.ping(retries + 1), delay)
       } else {
         console.error('❌ Max ping retries exceeded')
+        // Restart pinger after 5 minutes if all retries failed
+        setTimeout(() => {
+          console.log('🔄 Restarting pinger after failure...')
+          this.ping()
+        }, 5 * 60 * 1000)
       }
     }
   }
