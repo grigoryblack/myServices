@@ -40,7 +40,7 @@ export function MonthSelector() {
       const nextMonth = new Date(currentMonth + '-01')
       nextMonth.setMonth(nextMonth.getMonth() + 1)
       const nextMonthStr = nextMonth.toISOString().slice(0, 7)
-      createBudget('Семейный бюджет', nextMonthStr, 150000)
+      createBudget('Семейный бюджет', nextMonthStr, 0)
     }
   }
 

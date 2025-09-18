@@ -11,6 +11,7 @@ export interface BudgetCategory {
   categoryType: 'fixed' | 'variable' // Фиксированные или переменные расходы
   proportion?: number // Пропорция для переменных категорий (0-1)
   color?: string
+  isPermanent?: boolean // Постоянная категория - копируется в новые месяцы
 }
 
 export interface Budget {

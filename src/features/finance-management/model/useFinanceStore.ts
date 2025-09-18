@@ -38,6 +38,7 @@ interface FinanceState {
   updateBudgetIncome: (month: string, totalIncome: number) => void
   initializeWithSeedData: () => void
   clearAllData: () => void
+  copyPermanentCategoryToFutureMonths: (category: BudgetCategory, fromMonth: string) => void
 }
 
 export const useFinanceStore = create<FinanceState>()(
@@ -52,46 +53,12 @@ export const useFinanceStore = create<FinanceState>()(
       savingsGoalDescription: 'Цель накоплений',
 
       createBudget: (name: string, month: string, totalIncome = 0) => {
-        const defaultCategories: BudgetCategory[] = [
-          // One fixed expense
-          {
-            id: crypto.randomUUID(),
-            name: 'Фиксированные расходы',
-            plannedAmount: 0,
-            actualAmount: 0,
-            type: 'expense',
-            categoryType: 'fixed',
-            color: '#ef4444'
-          },
-          // One variable expense
-          {
-            id: crypto.randomUUID(),
-            name: 'Переменные расходы',
-            plannedAmount: 0,
-            actualAmount: 0,
-            type: 'expense',
-            categoryType: 'variable',
-            proportion: 1.0,
-            color: '#22c55e'
-          },
-          // One savings
-          {
-            id: crypto.randomUUID(),
-            name: 'Копилка',
-            plannedAmount: 0,
-            actualAmount: 0,
-            type: 'savings',
-            categoryType: 'fixed',
-            color: '#059669'
-          }
-        ]
-
         const newBudget: Budget = {
           id: crypto.randomUUID(),
           name,
           month,
           totalIncome,
-          categories: defaultCategories,
+          categories: [], // Start with empty categories
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -225,6 +192,11 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           budgets: { ...state.budgets, [month]: updatedBudget }
         }))
+
+        // If it's a permanent category, copy to future months
+        if (categoryData.isPermanent) {
+          get().copyPermanentCategoryToFutureMonths(newCategory, month)
+        }
 
         // If it's a variable category, redistribute income
         if (categoryData.categoryType === 'variable') {
@@ -394,11 +366,11 @@ export const useFinanceStore = create<FinanceState>()(
         let totalPlannedSavings = 0
         let totalActualSavings = 0
         const savingsByMonth: Array<{ month: string; planned: number; actual: number }> = []
-        const goal = 100000
-        const goalDescription = 'Цель на год'
 
         months.forEach(month => {
           const budget = budgets[month]
+          if (!budget) return // Skip if budget doesn't exist
+          
           const plannedSavings = budget.categories
             .filter(cat => cat.type === 'savings')
             .reduce((sum, cat) => sum + cat.plannedAmount, 0)
@@ -522,6 +494,46 @@ export const useFinanceStore = create<FinanceState>()(
           budgets: {},
           currentMonth: new Date().toISOString().slice(0, 7),
           transactions: [],
+        })
+      },
+
+      copyPermanentCategoryToFutureMonths: (category: BudgetCategory, fromMonth: string) => {
+        const { budgets } = get()
+        const fromDate = new Date(fromMonth + '-01')
+        
+        // Get all months that come after the fromMonth
+        const futureMonths = Object.keys(budgets)
+          .filter(month => {
+            const monthDate = new Date(month + '-01')
+            return monthDate > fromDate
+          })
+        
+        // Copy category to each future month if it doesn't already exist
+        futureMonths.forEach(month => {
+          const budget = budgets[month]
+          if (!budget) return
+          
+          // Check if category with same name already exists
+          const existingCategory = budget.categories.find(cat => cat.name === category.name)
+          if (existingCategory) return
+          
+          // Create new category with new ID but same properties
+          const newCategory: BudgetCategory = {
+            ...category,
+            id: crypto.randomUUID(),
+            actualAmount: 0, // Reset actual amount for new month
+          }
+          
+          const updatedBudget = {
+            ...budget,
+            categories: [...budget.categories, newCategory],
+            updatedAt: new Date(),
+          }
+          
+          set((state) => ({
+            ...state,
+            budgets: { ...state.budgets, [month]: updatedBudget }
+          }))
         })
       },
     }),

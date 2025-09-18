@@ -15,6 +15,7 @@ export function SavingsWidget() {
   const setSavingsGoal = useFinanceStore(state => state.setSavingsGoal)
   const setSavingsAmount = useFinanceStore(state => state.setSavingsAmount)
   const currentMonth = useFinanceStore(state => state.currentMonth)
+  const budgets = useFinanceStore(state => state.budgets)
   const summary = getSavingsSummary()
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -173,25 +174,35 @@ export function SavingsWidget() {
           <div className="space-y-2">
             <h4 className="text-sm font-medium">По месяцам</h4>
             <div className="space-y-1 max-h-32 overflow-y-auto">
-              {summary.savingsByMonth.slice(-3).map(({ month, planned, actual }) => {
-                const [year, monthNum] = month.split('-')
-                const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-                const monthDisplay = `${monthNames[parseInt(monthNum) - 1]} ${year}`
+              {(() => {
+                const availableMonths = Object.keys(budgets).sort()
+                const currentIndex = availableMonths.indexOf(currentMonth)
                 
-                return (
-                  <div key={month} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{monthDisplay}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={actual >= planned ? 'text-green-600' : 'text-red-600'}>
-                        {formatCurrency(actual)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        / {formatCurrency(planned)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
+                // Show current month and 2 previous months (or available months)
+                const monthsToShow = availableMonths.slice(Math.max(0, currentIndex - 2), currentIndex + 1)
+                
+                return summary.savingsByMonth
+                  .filter(({ month }) => monthsToShow.includes(month))
+                  .map(({ month, planned, actual }) => {
+                    const [year, monthNum] = month.split('-')
+                    const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+                    const monthDisplay = `${monthNames[parseInt(monthNum) - 1]} ${year}`
+                    
+                    return (
+                      <div key={month} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{monthDisplay}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={actual >= planned ? 'text-green-600' : 'text-red-600'}>
+                            {formatCurrency(actual)}
+                          </span>
+                          <span className="text-muted-foreground">
+                            / {formatCurrency(planned)}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })
+              })()}
             </div>
           </div>
         )}
