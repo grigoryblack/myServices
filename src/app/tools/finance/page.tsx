@@ -31,15 +31,25 @@ export default function FinancePage() {
 
   // Fix hydration by ensuring client-side rendering
   useEffect(() => {
-    setIsClient(true)
+    const timer = setTimeout(() => {
+      setIsClient(true)
+    }, 50)
+    
+    return () => clearTimeout(timer)
   }, [])
 
   // Initialize with seed data if no budgets exist
   useEffect(() => {
     if (isClient && availableMonths.length === 0) {
+      console.log('Initializing seed data...')
       initializeWithSeedData()
     }
   }, [isClient, availableMonths.length, initializeWithSeedData])
+
+  // Force re-render when budgets change
+  useEffect(() => {
+    console.log('Available months changed:', availableMonths.length)
+  }, [availableMonths])
 
   // Prevent hydration mismatch by not rendering until client-side
   if (!isClient) {
@@ -63,16 +73,7 @@ export default function FinancePage() {
     )
   }
 
-  if (availableMonths.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Загрузка бюджета...</h2>
-          <p className="text-muted-foreground">Инициализация данных</p>
-        </div>
-      </div>
-    )
-  }
+  // Remove the blocking screen - let the component render even during initialization
 
   return (
     <div className="space-y-8">
@@ -85,36 +86,47 @@ export default function FinancePage() {
           </p>
         </div>
         <div className="flex items-center gap-4 self-start sm:self-auto">
-          <MonthSelector />
+          {availableMonths.length > 0 && <MonthSelector />}
         </div>
       </div>
 
-      {/* Balance Overview */}
-      <BalanceCard />
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Budget Table - Takes 2 columns */}
-        <div className="lg:col-span-2 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-4">План-Факт по категориям</h2>
-            <BudgetTable />
+      {availableMonths.length === 0 ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Инициализация бюджета...</h2>
+            <p className="text-muted-foreground">Создание базовых категорий</p>
           </div>
         </div>
+      ) : (
+        <>
+          {/* Balance Overview */}
+          <BalanceCard />
 
-        {/* Right Panel - Takes 1 column */}
-        <div className="space-y-6">
-          <IncomeForm />
-          <SavingsWidget />
-          <CategoryManager month={currentBudget?.month || ''} />
-          <ExpenseForm />
-        </div>
-      </div>
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Budget Table - Takes 2 columns */}
+            <div className="lg:col-span-2 space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">План-Факт по категориям</h2>
+                <BudgetTable />
+              </div>
+            </div>
 
-      {/* Transaction History Section */}
-      <div>
-        <TransactionHistory />
-      </div>
+            {/* Right Panel - Takes 1 column */}
+            <div className="space-y-6">
+              <IncomeForm />
+              <SavingsWidget />
+              <CategoryManager month={currentBudget?.month || ''} />
+              <ExpenseForm />
+            </div>
+          </div>
+
+          {/* Transaction History Section */}
+          <div>
+            <TransactionHistory />
+          </div>
+        </>
+      )}
     </div>
   )
 }

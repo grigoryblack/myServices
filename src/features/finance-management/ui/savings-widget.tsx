@@ -14,6 +14,7 @@ export function SavingsWidget() {
   const getSavingsSummary = useFinanceStore(state => state.getSavingsSummary)
   const setSavingsGoal = useFinanceStore(state => state.setSavingsGoal)
   const setSavingsAmount = useFinanceStore(state => state.setSavingsAmount)
+  const currentMonth = useFinanceStore(state => state.currentMonth)
   const summary = getSavingsSummary()
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -47,7 +48,7 @@ export function SavingsWidget() {
   const handleSaveAmount = () => {
     const amount = parseFloat(editAmount)
     if (!isNaN(amount) && amount >= 0) {
-      setSavingsAmount(amount)
+      setSavingsAmount(amount, currentMonth)
       setIsEditAmountOpen(false)
     }
   }

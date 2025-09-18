@@ -31,7 +31,8 @@ export function CategoryManager({ month }: CategoryManagerProps) {
     type: 'expense' as 'expense' | 'income' | 'savings',
     categoryType: 'variable' as 'fixed' | 'variable',
     proportion: '',
-    color: CATEGORY_COLORS[0]
+    color: CATEGORY_COLORS[0],
+    isPermanent: false
   })
 
   const budget = budgets[month]
@@ -52,7 +53,16 @@ export function CategoryManager({ month }: CategoryManagerProps) {
       )
     }
 
-    addCategory(month, categoryData)
+    if (newCategory.isPermanent) {
+      // Add to all existing months
+      const { budgets } = useFinanceStore.getState()
+      Object.keys(budgets).forEach(monthKey => {
+        addCategory(monthKey, categoryData)
+      })
+    } else {
+      // Add only to current month
+      addCategory(month, categoryData)
+    }
     
     // Reset form
     setNewCategory({
@@ -61,7 +71,8 @@ export function CategoryManager({ month }: CategoryManagerProps) {
       type: 'expense',
       categoryType: 'variable',
       proportion: '',
-      color: CATEGORY_COLORS[0]
+      color: CATEGORY_COLORS[0],
+      isPermanent: false
     })
     setIsAddDialogOpen(false)
   }
@@ -73,9 +84,8 @@ export function CategoryManager({ month }: CategoryManagerProps) {
   }
 
   const canDeleteCategory = (category: BudgetCategory) => {
-    // Don't allow deleting essential fixed categories
-    const essentialCategories = ['Аренда', 'Коммунальные услуги', 'Кредит']
-    return !essentialCategories.includes(category.name)
+    // Allow deleting any category
+    return true
   }
 
   return (
@@ -188,6 +198,19 @@ export function CategoryManager({ month }: CategoryManagerProps) {
                 </div>
               </div>
 
+              <div className="flex items-start space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPermanent"
+                  checked={newCategory.isPermanent}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, isPermanent: e.target.checked }))}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="isPermanent" className="text-s font-normal">
+                  Постоянная категория (отображается во всех месяцах)
+                </Label>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleAddCategory} className="flex-1">
                   Добавить
@@ -206,7 +229,7 @@ export function CategoryManager({ month }: CategoryManagerProps) {
       </CardHeader>
       
       <CardContent>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-80 overflow-y-auto">
           {budget.categories.map((category) => (
             <div
               key={category.id}

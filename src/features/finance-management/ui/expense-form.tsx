@@ -34,8 +34,7 @@ export function ExpenseForm() {
   const currentBudget = getCurrentBudget()
   if (!currentBudget) return null
 
-  const expenseCategories = currentBudget?.categories.filter(cat => cat.type === 'expense' && cat.categoryType === 'variable') || []
-  const allCategories = expenseCategories
+  const allCategories = currentBudget?.categories.filter(cat => cat.type === 'expense') || []
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,7 +85,7 @@ export function ExpenseForm() {
                     <option value="">Выберите категорию</option>
                     {allCategories.map(category => (
                       <option key={category.id} value={category.id}>
-                        {category.name} ({category.type === 'savings' ? 'Накопления' : 'Расход'})
+                        {category.name} ({category.categoryType === 'fixed' ? 'Фиксированный' : 'Переменный'})
                       </option>
                     ))}
                   </select>

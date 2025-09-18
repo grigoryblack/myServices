@@ -30,7 +30,11 @@ export function TransactionHistory() {
 
   // Fix hydration by ensuring client-side rendering
   useEffect(() => {
-    setIsClient(true)
+    const timer = setTimeout(() => {
+      setIsClient(true)
+    }, 100)
+    
+    return () => clearTimeout(timer)
   }, [])
   
   // Filter transactions by selected month and get fresh data
@@ -138,7 +142,8 @@ export function TransactionHistory() {
         </div>
       ) : (
         <div className="rounded-md border">
-          <Table>
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Дата</TableHead>
@@ -241,7 +246,8 @@ export function TransactionHistory() {
                 )
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
       )}
     </div>

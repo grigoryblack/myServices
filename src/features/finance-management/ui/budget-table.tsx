@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input } from '@/shared/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '@/shared/ui'
 import { formatCurrency } from '@/shared/lib/utils'
 import { useFinanceStore } from '../model/useFinanceStore'
 import { BudgetCategory } from '@/entities'
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react'
 
 /**
  * BudgetTable component
@@ -18,6 +19,9 @@ export function BudgetTable() {
   
   const [editingCell, setEditingCell] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'name' | 'planned' | 'actual' | 'deviation' | 'type'>('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [filterType, setFilterType] = useState<'all' | 'fixed' | 'variable'>('all')
   
   const currentBudget = getCurrentBudget()
 
@@ -56,7 +60,64 @@ export function BudgetTable() {
     }
   }
 
-  const expenseCategories = currentBudget.categories.filter(cat => cat.type === 'expense')
+  const handleSort = (column: 'name' | 'planned' | 'actual' | 'deviation' | 'type') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(column)
+      setSortOrder('asc')
+    }
+  }
+
+  const getSortIcon = (column: 'name' | 'planned' | 'actual' | 'deviation' | 'type') => {
+    if (sortBy !== column) return <ArrowUpDown className="h-4 w-4" />
+    return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+  }
+
+  // Filter and sort categories
+  let expenseCategories = currentBudget.categories.filter(cat => cat.type === 'expense')
+  
+  // Apply filter
+  if (filterType !== 'all') {
+    expenseCategories = expenseCategories.filter(cat => 
+      filterType === 'fixed' ? cat.categoryType === 'fixed' : cat.categoryType === 'variable'
+    )
+  }
+
+  // Apply sort
+  expenseCategories = expenseCategories.sort((a, b) => {
+    let aValue: any, bValue: any
+    
+    switch (sortBy) {
+      case 'name':
+        aValue = a.name.toLowerCase()
+        bValue = b.name.toLowerCase()
+        break
+      case 'planned':
+        aValue = a.plannedAmount
+        bValue = b.plannedAmount
+        break
+      case 'actual':
+        aValue = getCategoryActualAmount(a.id)
+        bValue = getCategoryActualAmount(b.id)
+        break
+      case 'deviation':
+        aValue = getCategoryActualAmount(a.id) - a.plannedAmount
+        bValue = getCategoryActualAmount(b.id) - b.plannedAmount
+        break
+      case 'type':
+        aValue = a.categoryType
+        bValue = b.categoryType
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+    return 0
+  })
+
   const getBudgetSummary = useFinanceStore(state => state.getBudgetSummary)
   const summary = getBudgetSummary()
 
@@ -68,28 +129,99 @@ export function BudgetTable() {
 
   const getDeviationText = (deviation: number) => {
     if (deviation === 0) return '0'
-    const sign = deviation > 0 ? '+' : ''
-    return `${sign}${formatCurrency(deviation)}`
+    if (deviation > 0) return `+${formatCurrency(deviation)}`
+    return `${formatCurrency(Math.abs(deviation))}`
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Категория</TableHead>
-            <TableHead className="text-right">План</TableHead>
-            <TableHead className="text-right">Факт</TableHead>
-            <TableHead className="text-right">Отклонение</TableHead>
-            <TableHead className="text-right">%</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <div className="space-y-4">
+      {/* Filters and Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterType} onValueChange={(value: 'all' | 'fixed' | 'variable') => setFilterType(value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все категории</SelectItem>
+              <SelectItem value="fixed">Фиксированные</SelectItem>
+              <SelectItem value="variable">Переменные</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="text-sm text-muted-foreground">
+          Показано: {expenseCategories.length} категорий
+        </div>
+      </div>
+
+      <div className="rounded-md border">
+        <div className="max-h-96 overflow-y-auto">
+          <Table>
+            <TableHeader>
+            <TableRow>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Категория
+                    {getSortIcon('name')}
+                  </div>
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                  onClick={() => handleSort('planned')}
+                >
+                  <div className="flex items-center gap-1">
+                    План
+                    {getSortIcon('planned')}
+                  </div>
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                  onClick={() => handleSort('actual')}
+                >
+                  <div className="flex items-center gap-1">
+                    Факт
+                    {getSortIcon('actual')}
+                  </div>
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium hover:bg-transparent"
+                  onClick={() => handleSort('deviation')}
+                >
+                  <div className="flex items-center gap-1">
+                    Отклонение
+                    {getSortIcon('deviation')}
+                  </div>
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">%</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
           {expenseCategories.map((category: BudgetCategory) => {
             const actualAmount = getCategoryActualAmount(category.id)
             const deviation = actualAmount - category.plannedAmount
             const deviationPercent = category.plannedAmount > 0 
-              ? ((deviation / category.plannedAmount) * 100).toFixed(1)
+              ? Math.abs((deviation / category.plannedAmount) * 100).toFixed(1)
               : '0'
 
             return (
@@ -176,7 +308,9 @@ export function BudgetTable() {
             </TableCell>
           </TableRow>
         </TableBody>
-      </Table>
+          </Table>
+        </div>
+      </div>
     </div>
   )
 }

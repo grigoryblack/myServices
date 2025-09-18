@@ -28,11 +28,8 @@ export function Header() {
           </Button>
         </div>
         
-        {/* Desktop spacer */}
-        <div className="hidden lg:block flex-1" />
-        
         {/* Right side buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           <Button
             variant="ghost"
             size="icon"

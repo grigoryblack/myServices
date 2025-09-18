@@ -12,7 +12,9 @@ import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
  */
 export function BalanceCard() {
   const getBudgetSummary = useFinanceStore(state => state.getBudgetSummary)
-  const summary = getBudgetSummary()
+  const currentMonth = useFinanceStore(state => state.currentMonth)
+  const budgets = useFinanceStore(state => state.budgets)
+  const summary = getBudgetSummary(currentMonth)
 
   const balanceColor = summary.actualBalance >= 0 ? 'text-green-600' : 'text-red-600'
   const balanceIcon = summary.actualBalance >= 0 ? TrendingUp : TrendingDown

@@ -42,17 +42,7 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-6 border-b">
-            <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold">Личный портал</h1>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                className="hidden lg:flex"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-            </div>
+            <h1 className="text-xl font-bold">Личный портал</h1>
           </div>
 
           {/* Navigation */}

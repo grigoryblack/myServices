@@ -44,16 +44,50 @@ export const useFinanceStore = create<FinanceState>()(
       budgets: {},
       currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM format
       transactions: [],
-      savingsGoal: 100000,
+      savingsGoal: 0,
       savingsGoalDescription: 'Цель на год',
 
       createBudget: (name: string, month: string, totalIncome = 0) => {
+        const defaultCategories: BudgetCategory[] = [
+          // One fixed expense
+          {
+            id: crypto.randomUUID(),
+            name: 'Фиксированные расходы',
+            plannedAmount: 0,
+            actualAmount: 0,
+            type: 'expense',
+            categoryType: 'fixed',
+            color: '#ef4444'
+          },
+          // One variable expense
+          {
+            id: crypto.randomUUID(),
+            name: 'Переменные расходы',
+            plannedAmount: 0,
+            actualAmount: 0,
+            type: 'expense',
+            categoryType: 'variable',
+            proportion: 1.0,
+            color: '#22c55e'
+          },
+          // One savings
+          {
+            id: crypto.randomUUID(),
+            name: 'Копилка',
+            plannedAmount: 0,
+            actualAmount: 0,
+            type: 'savings',
+            categoryType: 'fixed',
+            color: '#059669'
+          }
+        ]
+
         const newBudget: Budget = {
           id: crypto.randomUUID(),
           name,
           month,
           totalIncome,
-          categories: [],
+          categories: defaultCategories,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -83,7 +117,7 @@ export const useFinanceStore = create<FinanceState>()(
           budget.categories.push({
             id: crypto.randomUUID(),
             name: 'Непредвиденные расходы',
-            plannedAmount: 15000,
+            plannedAmount: 0,
             actualAmount: 0,
             type: 'expense',
             categoryType: 'variable',
@@ -116,7 +150,7 @@ export const useFinanceStore = create<FinanceState>()(
       redistributeIncome: (month: string) => {
         set((state) => {
           const budget = state.budgets[month]
-          if (!budget) return state
+          if (!budget || budget.totalIncome === 0) return state
 
           const fixedExpenses = budget.categories.filter(cat => 
             cat.type === 'expense' && cat.categoryType === 'fixed'
@@ -128,7 +162,7 @@ export const useFinanceStore = create<FinanceState>()(
           const totalFixedExpenses = fixedExpenses.reduce((sum, cat) => sum + cat.plannedAmount, 0)
           
           // Available for variable expenses = Income - Fixed (savings are automatic remainder)
-          const availableForVariable = budget.totalIncome - totalFixedExpenses
+          const availableForVariable = Math.max(0, budget.totalIncome - totalFixedExpenses)
           
           // Calculate total proportions
           const totalProportions = variableExpenses.reduce((sum, cat) => sum + (cat.proportion || 0), 0)
@@ -313,8 +347,8 @@ export const useFinanceStore = create<FinanceState>()(
         const totalActualExpenses = totalActualFixedExpenses + totalActualVariableExpenses
         
         // Savings are automatic remainder after all expenses
-        const totalPlannedSavings = budget.totalIncome - totalFixedExpenses - totalVariableExpenses
-        const totalActualSavings = budget.totalIncome - totalActualExpenses
+        const totalPlannedSavings = Math.max(0, budget.totalIncome - totalFixedExpenses - totalVariableExpenses)
+        const totalActualSavings = Math.max(0, budget.totalIncome - totalActualExpenses)
         
         const totalPlannedExpenses = totalFixedExpenses + totalVariableExpenses
         const plannedBalance = 0 // No balance, everything goes to expenses or savings
@@ -355,7 +389,7 @@ export const useFinanceStore = create<FinanceState>()(
           
           const actualSavings = budget.categories
             .filter(cat => cat.type === 'savings')
-            .reduce((sum, cat) => sum + get().getCategoryActualAmount(cat.id, month), 0)
+            .reduce((sum, cat) => sum + cat.actualAmount, 0)
 
           totalPlannedSavings += plannedSavings
           totalActualSavings += actualSavings
@@ -448,147 +482,19 @@ export const useFinanceStore = create<FinanceState>()(
 
       initializeWithSeedData: () => {
         const currentMonth = new Date().toISOString().slice(0, 7)
-        const previousMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 7)
+        const previousMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7)
 
-        const createBudgetForMonth = (month: string, totalIncome: number): Budget => ({
-          id: `budget-${month}`,
-          name: `Бюджет ${month}`,
-          month,
-          totalIncome,
-          categories: [
-            // Create default categories for new budget
-            {
-              id: crypto.randomUUID(),
-              name: 'Аренда',
-              plannedAmount: 45000,
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'fixed',
-              color: '#ef4444'
-            },
-            {
-              id: crypto.randomUUID(),
-              name: 'Коммунальные услуги',
-              plannedAmount: 8000,
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'fixed',
-              color: '#f97316'
-            },
-            {
-              id: crypto.randomUUID(),
-              name: 'Кредит',
-              plannedAmount: 25000,
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'fixed',
-              color: '#dc2626'
-            },
-            {
-              id: crypto.randomUUID(),
-              name: 'Непредвиденные расходы',
-              plannedAmount: 15000,
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'variable',
-              proportion: 0.15,
-              color: '#991b1b'
-            },
-            // Variable expenses with proportions
-            {
-              id: `${month}-expense-food`,
-              name: 'Питание',
-              plannedAmount: 36000, // Will be recalculated
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'variable',
-              proportion: 0.5, // 50%
-              color: '#22c55e'
-            },
-            {
-              id: `${month}-expense-transport`,
-              name: 'Транспорт',
-              plannedAmount: 14400, // Will be recalculated
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'variable',
-              proportion: 0.2, // 20%
-              color: '#3b82f6'
-            },
-            {
-              id: `${month}-expense-entertainment`,
-              name: 'Развлечения',
-              plannedAmount: 21600, // Will be recalculated
-              actualAmount: 0,
-              type: 'expense',
-              categoryType: 'variable',
-              proportion: 0.3, // 30%
-              color: '#8b5cf6'
-            }
-          ],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
+        // Create budgets with default categories (no mock data)
+        const { createBudget } = get()
+        createBudget(`Бюджет ${previousMonth}`, previousMonth, 0)
+        createBudget(`Бюджет ${currentMonth}`, currentMonth, 0)
 
-        const budgets = {
-          [previousMonth]: createBudgetForMonth(previousMonth, 150000),
-          [currentMonth]: createBudgetForMonth(currentMonth, 150000)
-        }
-
-        const seedTransactions: Transaction[] = [
-          // Previous month transactions
-          {
-            id: crypto.randomUUID(),
-            categoryId: `${previousMonth}-expense-rent`,
-            amount: 45000,
-            description: 'Аренда квартиры',
-            date: new Date(`${previousMonth}-01`),
-            month: previousMonth,
-            type: 'expense',
-            createdAt: new Date(),
-          },
-          {
-            id: crypto.randomUUID(),
-            categoryId: `${previousMonth}-expense-food`,
-            amount: 28500,
-            description: 'Продукты за месяц',
-            date: new Date(`${previousMonth}-15`),
-            month: previousMonth,
-            type: 'expense',
-            createdAt: new Date(),
-          },
-          {
-            id: crypto.randomUUID(),
-            categoryId: `${previousMonth}-savings-general`,
-            amount: 20000,
-            description: 'Ежемесячные накопления',
-            date: new Date(`${previousMonth}-01`),
-            month: previousMonth,
-            type: 'expense',
-            createdAt: new Date(),
-          },
-          // Current month transactions
-          {
-            id: crypto.randomUUID(),
-            categoryId: `${currentMonth}-expense-rent`,
-            amount: 45000,
-            description: 'Аренда квартиры',
-            date: new Date(`${currentMonth}-01`),
-            month: currentMonth,
-            type: 'expense',
-            createdAt: new Date(),
-          }
-        ]
-
-        set({
-          budgets,
+        // Force update to trigger re-render
+        set((state) => ({
+          ...state,
           currentMonth,
-          transactions: seedTransactions,
-        })
-
-        // Redistribute income for both months
-        get().redistributeIncome(previousMonth)
-        get().redistributeIncome(currentMonth)
+          transactions: [],
+        }))
       },
 
       clearAllData: () => {
