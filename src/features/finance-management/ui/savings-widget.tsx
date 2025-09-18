@@ -66,7 +66,7 @@ export function SavingsWidget() {
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Settings className="h-3 w-3" />
+                <Settings className="h-4 w-4 sm:h-3 sm:w-3" />
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -102,7 +102,7 @@ export function SavingsWidget() {
               </div>
             </DialogContent>
           </Dialog>
-          <PiggyBank className="h-4 w-4 text-green-600" />
+          <PiggyBank className="h-5 w-5 sm:h-4 sm:w-4 text-green-600" />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

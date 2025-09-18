@@ -94,9 +94,8 @@ export function CategoryManager({ month }: CategoryManagerProps) {
         <CardTitle className="text-lg">Управление категориями</CardTitle>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
+            <Button size="sm">
               <Plus className="h-4 w-4" />
-              Добавить категорию
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
