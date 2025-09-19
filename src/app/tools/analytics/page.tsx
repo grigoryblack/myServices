@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { ChartPanel, MonthSelector } from '@/features/finance-management'
+import { ChartPanel, MonthSelector, DailyAverageWidget } from '@/features/finance-management'
 import { useFinanceStore } from '@/features/finance-management/model/useFinanceStore'
 
 /**
@@ -72,6 +72,13 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex items-center gap-4 self-start sm:self-auto">
           <MonthSelector />
+        </div>
+      </div>
+
+      {/* Analytics Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <div className="lg:col-span-1">
+          <DailyAverageWidget />
         </div>
       </div>
 

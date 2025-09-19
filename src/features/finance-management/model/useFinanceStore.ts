@@ -6,14 +6,13 @@ import { BudgetCategory, Budget, Transaction, BudgetSummary, SavingsSummary } fr
 
 /**
  * Finance management store
- * Manages multiple monthly budgets, categories, and transactions with persistence
+ * Manages multiple monthly budgets, categories, and transactions with localStorage persistence
  */
 interface FinanceState {
   budgets: Record<string, Budget>
   transactions: Transaction[]
   currentMonth: string
   isInitialized: boolean
-  isInitializing: boolean
   savingsGoal: number
   savingsGoalDescription: string
   
@@ -48,254 +47,77 @@ export const useFinanceStore = create<FinanceState>()(
       currentMonth: new Date().toISOString().slice(0, 7),
       transactions: [],
       isInitialized: false,
-      isInitializing: false,
       savingsGoal: 100000,
       savingsGoalDescription: 'Цель накоплений',
 
       createBudget: (name: string, month: string, totalIncome = 0) => {
         const newBudget: Budget = {
-          id: crypto.randomUUID(),
+          id: `budget-${month}`,
           name,
           month,
           totalIncome,
-          categories: [], // Start with empty categories
+          categories: [],
           createdAt: new Date(),
           updatedAt: new Date(),
         }
-        
-        set((state) => ({
-          budgets: { ...state.budgets, [month]: newBudget },
-          currentMonth: month
-        }))
-      },
-
-      setCurrentMonth: (month: string) => {
-        set({ currentMonth: month })
-      },
-
-      getCurrentBudget: () => {
-        const { budgets, currentMonth } = get()
-        const budget = budgets[currentMonth]
-        
-        if (!budget) return null
-        
-        
-        return budget
-      },
-
-      updateBudgetIncome: (month: string, totalIncome: number) => {
-        const { budgets } = get()
-        const budget = budgets[month]
-        if (!budget) return
-
-        const updatedBudget = { ...budget, totalIncome, updatedAt: new Date() }
-        set((state) => ({
-          budgets: { ...state.budgets, [month]: updatedBudget }
-        }))
-
-        // Trigger income redistribution
-        get().redistributeIncome(month)
-      },
-
-      redistributeIncome: (month: string) => {
-        set((state) => {
-          const budget = state.budgets[month]
-          if (!budget || budget.totalIncome === 0) return state
-
-          const fixedExpenses = budget.categories.filter(cat => 
-            cat.type === 'expense' && cat.categoryType === 'fixed'
-          )
-          const variableExpenses = budget.categories.filter(cat => 
-            cat.type === 'expense' && cat.categoryType === 'variable'
-          )
-
-          const totalFixedExpenses = fixedExpenses.reduce((sum, cat) => sum + cat.plannedAmount, 0)
-          
-          // Available for variable expenses = Income - Fixed (savings are automatic remainder)
-          const availableForVariable = Math.max(0, budget.totalIncome - totalFixedExpenses)
-          
-          // Calculate total proportions
-          const totalProportions = variableExpenses.reduce((sum, cat) => sum + (cat.proportion || 0), 0)
-          
-          if (totalProportions === 0) return state
-          
-          // Redistribute variable expenses proportionally
-          const updatedCategories = budget.categories.map(category => {
-            if (category.type === 'expense' && category.categoryType === 'variable' && category.proportion) {
-              const newAmount = (availableForVariable * category.proportion) / totalProportions
-              return { ...category, plannedAmount: Math.max(0, newAmount) }
-            }
-            return category
-          })
-
-          return {
-            ...state,
-            budgets: {
-              ...state.budgets,
-              [month]: {
-                ...budget,
-                categories: updatedCategories,
-                updatedAt: new Date()
-              }
-            }
-          }
-        })
-      },
-
-      updateCategory: (month: string, categoryId: string, updates: Partial<BudgetCategory>) => {
-        set((state) => {
-          const budget = state.budgets[month]
-          if (!budget) return state
-
-          const updatedCategories = budget.categories.map(cat =>
-            cat.id === categoryId ? { ...cat, ...updates } : cat
-          )
-
-          const updatedBudget = {
-            ...budget,
-            categories: updatedCategories
-          }
-
-          // If we updated a fixed category's planned amount, recalculate variable categories
-          const updatedCategory = updatedCategories.find(cat => cat.id === categoryId)
-          if (updatedCategory && updatedCategory.categoryType === 'fixed' && updates.plannedAmount !== undefined) {
-            get().redistributeIncome(month)
-          }
-
-          return {
-            ...state,
-            budgets: {
-              ...state.budgets,
-              [month]: updatedBudget
-            }
-          }
-        })
-      },
-
-      addCategory: (month: string, categoryData: Omit<BudgetCategory, 'id' | 'actualAmount'>) => {
-        const { budgets } = get()
-        const budget = budgets[month]
-        if (!budget) return
-
-        const newCategory: BudgetCategory = {
-          ...categoryData,
-          id: crypto.randomUUID(),
-          actualAmount: 0,
-        }
-
-        const updatedBudget = {
-          ...budget,
-          categories: [...budget.categories, newCategory],
-          updatedAt: new Date(),
-        }
 
         set((state) => ({
-          budgets: { ...state.budgets, [month]: updatedBudget }
+          budgets: {
+            ...state.budgets,
+            [month]: newBudget,
+          },
         }))
 
-        // If it's a permanent category, copy to future months
-        if (categoryData.isPermanent) {
-          get().copyPermanentCategoryToFutureMonths(newCategory, month)
-        }
-
-        // If it's a variable category, redistribute income
-        if (categoryData.categoryType === 'variable') {
+        // Initialize with default categories if income is provided
+        if (totalIncome > 0) {
           get().redistributeIncome(month)
         }
       },
 
-      removeCategory: (month: string, categoryId: string) => {
-        const { budgets, transactions } = get()
-        const budget = budgets[month]
+      redistributeIncome: (month: string) => {
+        const state = get()
+        const budget = state.budgets[month]
         if (!budget) return
 
-        const categoryToRemove = budget.categories.find(cat => cat.id === categoryId)
-        if (!categoryToRemove) return
+        const fixedCategories = budget.categories.filter(cat => cat.categoryType === 'fixed')
+        const savingsCategories = budget.categories.filter(cat => cat.categoryType === 'savings')
+        const variableCategories = budget.categories.filter(cat => cat.categoryType === 'variable')
 
-        console.log('Removing category:', categoryToRemove.name, 'from month:', month)
+        const totalFixed = fixedCategories.reduce((sum, cat) => sum + cat.plannedAmount, 0)
+        const totalSavings = savingsCategories.reduce((sum, cat) => sum + cat.plannedAmount, 0)
+        const availableForVariable = budget.totalIncome - totalFixed - totalSavings
 
-        const updatedCategories = budget.categories.filter(cat => cat.id !== categoryId)
-        
-        // Only remove transactions for the specific month
-        const updatedTransactions = transactions.filter(t => 
-          !(t.categoryId === categoryId && t.month === month)
-        )
+        if (availableForVariable <= 0 || variableCategories.length === 0) return
 
-        const updatedBudget = {
-          ...budget,
-          categories: updatedCategories,
-          updatedAt: new Date(),
-        }
+        const totalProportions = variableCategories.reduce((sum, cat) => sum + (cat.proportion || 0), 0)
 
-        // Force state update to trigger re-render
-        set((state) => ({
-          ...state,
-          budgets: { ...state.budgets, [month]: updatedBudget },
-          transactions: updatedTransactions,
-        }))
+        if (totalProportions === 0) return
 
-        console.log('Category removed. Remaining categories:', updatedCategories.length)
-
-        // If it was a variable category, redistribute income
-        if (categoryToRemove.categoryType === 'variable') {
-          setTimeout(() => get().redistributeIncome(month), 100)
-        }
-      },
-
-      addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'month'>) => {
-        const { transactions, currentMonth } = get()
-        const newTransaction: Transaction = {
-          ...transaction,
-          id: crypto.randomUUID(),
-          month: currentMonth,
-          createdAt: new Date()
-        }
-
-        set({ transactions: [...transactions, newTransaction] })
-      },
-
-      updateTransaction: (transactionId: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
-        const { transactions } = get()
-        const updatedTransactions = transactions.map(t =>
-          t.id === transactionId ? { ...t, ...updates } : t
-        )
-        set({ transactions: updatedTransactions })
-      },
-
-      removeTransaction: (transactionId: string) => {
-        const { transactions, budgets } = get()
-        const transactionToRemove = transactions.find(t => t.id === transactionId)
-        
-        if (!transactionToRemove) return
-        
-        // Remove the transaction
-        const updatedTransactions = transactions.filter(t => t.id !== transactionId)
-        
-        // Update the category's actual amount
-        const budget = budgets[transactionToRemove.month]
-        if (budget) {
-          const category = budget.categories.find(cat => cat.id === transactionToRemove.categoryId)
-          if (category && category.categoryType !== 'fixed') {
-            // Recalculate actual amount for variable categories
-            const newActualAmount = updatedTransactions
-              .filter(t => t.categoryId === transactionToRemove.categoryId && t.month === transactionToRemove.month)
-              .reduce((sum, t) => sum + t.amount, 0)
-            
-            category.actualAmount = newActualAmount
-            budget.updatedAt = new Date()
+        const updatedCategories = budget.categories.map(category => {
+          if (category.categoryType === 'variable' && category.proportion) {
+            return {
+              ...category,
+              plannedAmount: Math.round((availableForVariable * category.proportion) / totalProportions)
+            }
           }
-        }
-        
-        set({ 
-          transactions: updatedTransactions,
-          budgets: { ...budgets }
+          return category
         })
+
+        set((state) => ({
+          budgets: {
+            ...state.budgets,
+            [month]: {
+              ...budget,
+              categories: updatedCategories,
+              updatedAt: new Date().toISOString(),
+            }
+          }
+        }))
       },
 
-      getBudgetSummary: (month?: string) => {
-        const { budgets, currentMonth, transactions } = get()
-        const targetMonth = month || currentMonth
-        const budget = budgets[targetMonth]
+      getBudgetSummary: (month?: string): BudgetSummary => {
+        const targetMonth = month || get().currentMonth
+        const budget = get().budgets[targetMonth]
         
         if (!budget) {
           return {
@@ -308,42 +130,20 @@ export const useFinanceStore = create<FinanceState>()(
             totalActualExpenses: 0,
             plannedBalance: 0,
             actualBalance: 0,
-            availableForVariable: 0
+            availableForVariable: 0,
           }
         }
 
-        const expenseCategories = budget.categories.filter(cat => cat.type === 'expense')
-        
-        const fixedExpenses = expenseCategories.filter(cat => cat.categoryType === 'fixed')
-        const variableExpenses = expenseCategories.filter(cat => cat.categoryType === 'variable')
+        const fixedExpenses = budget.categories.filter(cat => cat.categoryType === 'fixed' && cat.type === 'expense')
+        const variableExpenses = budget.categories.filter(cat => cat.categoryType === 'variable' && cat.type === 'expense')
+        const savingsCategories = budget.categories.filter(cat => cat.type === 'savings')
         
         const totalFixedExpenses = fixedExpenses.reduce((sum, cat) => sum + cat.plannedAmount, 0)
         const totalVariableExpenses = variableExpenses.reduce((sum, cat) => sum + cat.plannedAmount, 0)
-        
-        // Calculate actual amounts from transactions (only for variable expenses)
-        const monthTransactions = transactions.filter(t => t.month === targetMonth)
-        
-        // Fixed expenses are automatically deducted, no actual tracking
-        const totalActualFixedExpenses = totalFixedExpenses
-        
-        // Only variable expenses have actual tracking
-        const totalActualVariableExpenses = variableExpenses.reduce((sum, cat) => {
-          const categoryTransactions = monthTransactions.filter(t => t.categoryId === cat.id)
-          return sum + categoryTransactions.reduce((catSum, t) => catSum + t.amount, 0)
-        }, 0)
-        
-        const totalActualExpenses = totalActualFixedExpenses + totalActualVariableExpenses
-        
-        // Savings are automatic remainder after all expenses
-        const totalPlannedSavings = Math.max(0, budget.totalIncome - totalFixedExpenses - totalVariableExpenses)
-        const totalActualSavings = Math.max(0, budget.totalIncome - totalActualExpenses)
-        
+        const totalPlannedSavings = savingsCategories.reduce((sum, cat) => sum + cat.plannedAmount, 0)
+        const totalActualSavings = savingsCategories.reduce((sum, cat) => sum + get().getCategoryActualAmount(cat.id, targetMonth), 0)
         const totalPlannedExpenses = totalFixedExpenses + totalVariableExpenses
-        const plannedBalance = 0 // No balance, everything goes to expenses or savings
-        const actualBalance = 0 // No balance, everything goes to expenses or savings
-        
-        // Available for variable = Income - Fixed (no savings deduction)
-        const availableForVariable = budget.totalIncome - totalFixedExpenses
+        const totalActualExpenses = budget.categories.filter(cat => cat.type === 'expense').reduce((sum, cat) => sum + get().getCategoryActualAmount(cat.id, targetMonth), 0)
 
         return {
           totalIncome: budget.totalIncome,
@@ -353,49 +153,176 @@ export const useFinanceStore = create<FinanceState>()(
           totalActualSavings,
           totalPlannedExpenses,
           totalActualExpenses,
-          plannedBalance,
-          actualBalance,
-          availableForVariable
+          plannedBalance: budget.totalIncome - totalPlannedExpenses - totalPlannedSavings,
+          actualBalance: budget.totalIncome - totalActualExpenses - totalActualSavings,
+          availableForVariable: budget.totalIncome - totalFixedExpenses - totalPlannedSavings,
         }
       },
 
       getSavingsSummary: (): SavingsSummary => {
-        const { budgets } = get()
-        const months = Object.keys(budgets).sort()
+        const state = get()
+        const allBudgets = Object.values(state.budgets)
         
+        let totalSaved = 0
+        const monthlyBreakdown: Array<{ month: string; amount: number }> = []
+
         let totalPlannedSavings = 0
         let totalActualSavings = 0
         const savingsByMonth: Array<{ month: string; planned: number; actual: number }> = []
 
-        months.forEach(month => {
-          const budget = budgets[month]
-          if (!budget) return // Skip if budget doesn't exist
+        allBudgets.forEach(budget => {
+          const savingsCategories = budget.categories.filter(cat => cat.type === 'savings')
+          const monthPlanned = savingsCategories.reduce((sum, cat) => sum + cat.plannedAmount, 0)
+          const monthActual = savingsCategories.reduce((sum, cat) => {
+            return sum + get().getCategoryActualAmount(cat.id, budget.month)
+          }, 0)
           
-          const plannedSavings = budget.categories
-            .filter(cat => cat.type === 'savings')
-            .reduce((sum, cat) => sum + cat.plannedAmount, 0)
+          totalPlannedSavings += monthPlanned
+          totalActualSavings += monthActual
           
-          const actualSavings = budget.categories
-            .filter(cat => cat.type === 'savings')
-            .reduce((sum, cat) => sum + cat.actualAmount, 0)
-
-          totalPlannedSavings += plannedSavings
-          totalActualSavings += actualSavings
-          
-          savingsByMonth.push({
-            month,
-            planned: plannedSavings,
-            actual: actualSavings
-          })
+          if (monthPlanned > 0 || monthActual > 0) {
+            savingsByMonth.push({
+              month: budget.month,
+              planned: monthPlanned,
+              actual: monthActual
+            })
+          }
         })
 
         return {
           totalPlannedSavings,
           totalActualSavings,
-          savingsByMonth,
-          goal: get().savingsGoal,
-          goalDescription: get().savingsGoalDescription
+          savingsByMonth: savingsByMonth.sort((a, b) => a.month.localeCompare(b.month)),
+          goal: state.savingsGoal,
+          goalDescription: state.savingsGoalDescription,
         }
+      },
+
+      updateCategory: (month: string, categoryId: string, updates: Partial<BudgetCategory>) => {
+        set((state) => {
+          const budget = state.budgets[month]
+          if (!budget) return state
+
+          const updatedCategories = budget.categories.map(cat =>
+            cat.id === categoryId ? { ...cat, ...updates } : cat
+          )
+
+          return {
+            budgets: {
+              ...state.budgets,
+              [month]: {
+                ...budget,
+                categories: updatedCategories,
+                updatedAt: new Date().toISOString(),
+              }
+            }
+          }
+        })
+      },
+
+      addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'month'>) => {
+        const newTransaction: Transaction = {
+          ...transaction,
+          id: `transaction-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+          month: transaction.date.slice(0, 7), // Extract YYYY-MM from date
+        }
+
+        set((state) => ({
+          transactions: [...state.transactions, newTransaction]
+        }))
+      },
+
+      updateTransaction: (transactionId: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
+        set((state) => ({
+          transactions: state.transactions.map(transaction =>
+            transaction.id === transactionId 
+              ? { 
+                  ...transaction, 
+                  ...updates,
+                  month: updates.date ? updates.date.slice(0, 7) : transaction.month
+                }
+              : transaction
+          )
+        }))
+      },
+
+      removeTransaction: (transactionId: string) => {
+        set((state) => ({
+          transactions: state.transactions.filter(t => t.id !== transactionId)
+        }))
+      },
+
+      addCategory: (month: string, categoryData: Omit<BudgetCategory, 'id' | 'actualAmount'>) => {
+        const newCategory: BudgetCategory = {
+          ...categoryData,
+          id: `category-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          actualAmount: 0,
+        }
+
+        set((state) => {
+          const budget = state.budgets[month]
+          if (!budget) return state
+
+          return {
+            budgets: {
+              ...state.budgets,
+              [month]: {
+                ...budget,
+                categories: [...budget.categories, newCategory],
+                updatedAt: new Date().toISOString(),
+              }
+            }
+          }
+        })
+      },
+
+      removeCategory: (month: string, categoryId: string) => {
+        set((state) => {
+          const budget = state.budgets[month]
+          if (!budget) return state
+
+          return {
+            budgets: {
+              ...state.budgets,
+              [month]: {
+                ...budget,
+                categories: budget.categories.filter(cat => cat.id !== categoryId),
+                updatedAt: new Date().toISOString(),
+              }
+            }
+          }
+        })
+      },
+
+      getCategoryActualAmount: (categoryId: string, month?: string): number => {
+        const targetMonth = month || get().currentMonth
+        const transactions = get().transactions.filter(t => 
+          t.categoryId === categoryId && t.month === targetMonth
+        )
+        return transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+      },
+
+      getTransactionsByCategory: (categoryId: string, month?: string): Transaction[] => {
+        const targetMonth = month || get().currentMonth
+        return get().transactions.filter(t => 
+          t.categoryId === categoryId && t.month === targetMonth
+        )
+      },
+
+      getAvailableMonths: (): string[] => {
+        const budgetMonths = Object.keys(get().budgets)
+        const transactionMonths = [...new Set(get().transactions.map(t => t.month))]
+        const allMonths = [...new Set([...budgetMonths, ...transactionMonths])]
+        return allMonths.sort()
+      },
+
+      getCurrentBudget: (): Budget | null => {
+        return get().budgets[get().currentMonth] || null
+      },
+
+      setCurrentMonth: (month: string) => {
+        set({ currentMonth: month })
       },
 
       setSavingsGoal: (goal: number, description: string) => {
@@ -403,142 +330,201 @@ export const useFinanceStore = create<FinanceState>()(
       },
 
       setSavingsAmount: (amount: number, month?: string) => {
-        const { budgets, currentMonth } = get()
-        const targetMonth = month || currentMonth
-        const budget = budgets[targetMonth]
-        
+        const targetMonth = month || get().currentMonth
+        const budget = get().budgets[targetMonth]
         if (!budget) return
-        
+
         // Find or create savings category
-        let savingsCategory = budget.categories.find(cat => cat.type === 'savings')
+        let savingsCategory = budget.categories.find(cat => cat.categoryType === 'savings')
         
         if (!savingsCategory) {
-          // Create new savings category if it doesn't exist
-          savingsCategory = {
-            id: crypto.randomUUID(),
+          get().addCategory(targetMonth, {
             name: 'Накопления',
-            plannedAmount: 0,
-            actualAmount: amount,
-            type: 'savings',
-            categoryType: 'fixed',
-            color: '#10b981'
+            plannedAmount: amount,
+            categoryType: 'savings',
+            color: '#10B981',
+          })
+        } else {
+          get().updateCategory(targetMonth, savingsCategory.id, { plannedAmount: amount })
+        }
+      },
+
+      updateBudgetIncome: (month: string, totalIncome: number) => {
+        set((state) => {
+          const budget = state.budgets[month]
+          if (!budget) return state
+
+          return {
+            budgets: {
+              ...state.budgets,
+              [month]: {
+                ...budget,
+                totalIncome,
+                updatedAt: new Date().toISOString(),
+              }
+            }
           }
-          budget.categories.push(savingsCategory)
-        }
-        
-        // Update the actual amount for savings category
-        savingsCategory.actualAmount = amount
-        budget.updatedAt = new Date()
-        
-        set({ budgets: { ...budgets } })
-      },
+        })
 
-      getCategoryActualAmount: (categoryId: string, month?: string) => {
-        const { transactions, currentMonth, budgets } = get()
-        const targetMonth = month || currentMonth
-        const budget = budgets[targetMonth]
-        
-        if (!budget) return 0
-        
-        const category = budget.categories.find(cat => cat.id === categoryId)
-        if (!category) return 0
-        
-        // Fixed expenses are automatically deducted (actual = planned)
-        if (category.categoryType === 'fixed') {
-          return category.plannedAmount
-        }
-        
-        // For variable expenses and savings, calculate from transactions
-        return transactions
-          .filter(t => t.categoryId === categoryId && t.month === targetMonth)
-          .reduce((sum, t) => sum + t.amount, 0)
-      },
-
-      getTransactionsByCategory: (categoryId: string, month?: string) => {
-        const { transactions, currentMonth } = get()
-        const targetMonth = month || currentMonth
-        
-        return transactions
-          .filter(t => t.categoryId === categoryId && t.month === targetMonth)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      },
-
-      getAvailableMonths: () => {
-        const { budgets } = get()
-        return Object.keys(budgets).sort()
+        // Redistribute income after update
+        get().redistributeIncome(month)
       },
 
       initializeWithSeedData: () => {
-        set((state) => ({ ...state, isInitializing: true }))
-        
         const currentMonth = new Date().toISOString().slice(0, 7)
-        const previousMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7)
+        const previousMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 7)
 
-        // Create budgets with default categories (no mock data)
-        const { createBudget } = get()
-        createBudget(`Бюджет ${previousMonth}`, previousMonth, 0)
-        createBudget(`Бюджет ${currentMonth}`, currentMonth, 0)
+        // Create previous month budget
+        get().createBudget('Бюджет', previousMonth, 150000)
+        
+        // Add categories to previous month
+        const prevBudgetId = `budget-${previousMonth}`
+        get().addCategory(previousMonth, {
+          name: 'Аренда',
+          plannedAmount: 45000,
+          categoryType: 'fixed',
+          color: '#EF4444',
+        })
+        
+        get().addCategory(previousMonth, {
+          name: 'Коммунальные',
+          plannedAmount: 8000,
+          categoryType: 'fixed',
+          color: '#F59E0B',
+        })
+        
+        get().addCategory(previousMonth, {
+          name: 'Кредит',
+          plannedAmount: 25000,
+          categoryType: 'fixed',
+          color: '#DC2626',
+        })
+        
+        get().addCategory(previousMonth, {
+          name: 'Продукты',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#10B981',
+          proportion: 50,
+        })
+        
+        get().addCategory(previousMonth, {
+          name: 'Транспорт',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#3B82F6',
+          proportion: 20,
+        })
+        
+        get().addCategory(previousMonth, {
+          name: 'Развлечения',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#8B5CF6',
+          proportion: 30,
+        })
+        
+        get().setSavingsAmount(20000, previousMonth)
+        get().redistributeIncome(previousMonth)
 
-        // Mark as initialized and stop initializing
-        set((state) => ({
-          ...state,
-          currentMonth,
-          transactions: [],
-          isInitialized: true,
-          isInitializing: false,
-        }))
+        // Create current month budget
+        get().createBudget('Бюджет', currentMonth, 150000)
+        
+        // Add categories to current month
+        get().addCategory(currentMonth, {
+          name: 'Аренда',
+          plannedAmount: 45000,
+          categoryType: 'fixed',
+          color: '#EF4444',
+        })
+        
+        get().addCategory(currentMonth, {
+          name: 'Коммунальные',
+          plannedAmount: 8000,
+          categoryType: 'fixed',
+          color: '#F59E0B',
+        })
+        
+        get().addCategory(currentMonth, {
+          name: 'Кредит',
+          plannedAmount: 25000,
+          categoryType: 'fixed',
+          color: '#DC2626',
+        })
+        
+        get().addCategory(currentMonth, {
+          name: 'Продукты',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#10B981',
+          proportion: 50,
+        })
+        
+        get().addCategory(currentMonth, {
+          name: 'Транспорт',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#3B82F6',
+          proportion: 20,
+        })
+        
+        get().addCategory(currentMonth, {
+          name: 'Развлечения',
+          plannedAmount: 0,
+          categoryType: 'variable',
+          color: '#8B5CF6',
+          proportion: 30,
+        })
+        
+        get().setSavingsAmount(20000, currentMonth)
+        get().redistributeIncome(currentMonth)
+
+        set({ isInitialized: true })
       },
 
       clearAllData: () => {
         set({
           budgets: {},
-          currentMonth: new Date().toISOString().slice(0, 7),
           transactions: [],
+          currentMonth: new Date().toISOString().slice(0, 7),
+          isInitialized: false,
+          savingsGoal: 100000,
+          savingsGoalDescription: 'Цель накоплений',
         })
       },
 
       copyPermanentCategoryToFutureMonths: (category: BudgetCategory, fromMonth: string) => {
-        const { budgets } = get()
-        const fromDate = new Date(fromMonth + '-01')
-        
-        // Get all months that come after the fromMonth
-        const futureMonths = Object.keys(budgets)
-          .filter(month => {
-            const monthDate = new Date(month + '-01')
-            return monthDate > fromDate
-          })
-        
-        // Copy category to each future month if it doesn't already exist
+        const state = get()
+        const availableMonths = get().getAvailableMonths()
+        const futureMonths = availableMonths.filter(month => month > fromMonth)
+
         futureMonths.forEach(month => {
-          const budget = budgets[month]
+          const budget = state.budgets[month]
           if (!budget) return
-          
-          // Check if category with same name already exists
+
           const existingCategory = budget.categories.find(cat => cat.name === category.name)
-          if (existingCategory) return
-          
-          // Create new category with new ID but same properties
-          const newCategory: BudgetCategory = {
-            ...category,
-            id: crypto.randomUUID(),
-            actualAmount: 0, // Reset actual amount for new month
+          if (!existingCategory) {
+            get().addCategory(month, {
+              name: category.name,
+              plannedAmount: category.plannedAmount,
+              categoryType: category.categoryType,
+              color: category.color,
+              proportion: category.proportion,
+            })
           }
-          
-          const updatedBudget = {
-            ...budget,
-            categories: [...budget.categories, newCategory],
-            updatedAt: new Date(),
-          }
-          
-          set((state) => ({
-            ...state,
-            budgets: { ...state.budgets, [month]: updatedBudget }
-          }))
         })
       },
     }),
     {
       name: 'finance-store',
+      partialize: (state) => ({
+        budgets: state.budgets,
+        transactions: state.transactions,
+        currentMonth: state.currentMonth,
+        isInitialized: state.isInitialized,
+        savingsGoal: state.savingsGoal,
+        savingsGoalDescription: state.savingsGoalDescription,
+      }),
     }
   )
 )

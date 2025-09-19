@@ -11,6 +11,7 @@ import {
   IncomeForm,
   TransactionHistory,
   CategoryManager,
+  DailyAverageWidget,
 } from '@/features/finance-management'
 import { useFinanceStore } from '@/features/finance-management/model/useFinanceStore'
 

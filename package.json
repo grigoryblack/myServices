@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "drizzle-kit push:pg",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -22,8 +25,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
+    "drizzle-orm": "^0.29.0",
     "lucide-react": "^0.263.1",
     "next": "14.2.5",
+    "pg": "^8.11.3",
     "postcss": "^8",
     "react": "^18",
     "react-chartjs-2": "^5.2.0",
@@ -34,6 +39,8 @@
     "zustand": "^4.4.1"
   },
   "devDependencies": {
+    "@types/pg": "^8.10.9",
+    "drizzle-kit": "^0.20.4",
     "eslint": "^8",
     "eslint-config-next": "14.2.5"
   }
